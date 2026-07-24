@@ -15,6 +15,31 @@ Authenticate if these repositories are private:
 export HF_TOKEN="your_huggingface_token"
 ```
 
+Download the video files referenced by the Hugging Face dataset tables:
+
+```bash
+export ROBOMETER_DATASET_PATH="$PWD/robometer_dataset"
+mkdir -p "$ROBOMETER_DATASET_PATH"
+
+hf download chomeed/board_insertion_train_rfm \
+  --repo-type dataset \
+  --include "board_insertion_train_rfm/**" \
+  --local-dir "$ROBOMETER_DATASET_PATH"
+
+hf download chomeed/board_insertion_test_rfm \
+  --repo-type dataset \
+  --include "board_insertion_test_rfm/**" \
+  --local-dir "$ROBOMETER_DATASET_PATH"
+```
+
+The download root must contain:
+
+```text
+$ROBOMETER_DATASET_PATH/
+├── board_insertion_train_rfm/
+└── board_insertion_test_rfm/
+```
+
 Preprocess both datasets into the cache consumed by the training dataloader:
 
 ```bash
@@ -27,6 +52,10 @@ Point Robometer at the resulting cache:
 ```bash
 export ROBOMETER_PROCESSED_DATASETS_PATH="$PWD/processed_datasets/board_insertion_rfm"
 ```
+
+`ROBOMETER_DATASET_PATH` is the input-video location used during
+preprocessing. `ROBOMETER_PROCESSED_DATASETS_PATH` is the generated NPZ/cache
+location used during training. They are different directories.
 
 The expected cache directories are:
 
