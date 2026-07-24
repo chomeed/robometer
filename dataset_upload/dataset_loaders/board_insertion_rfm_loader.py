@@ -9,6 +9,7 @@ environment without requiring the ``lerobot`` package to be installed.
 from __future__ import annotations
 
 import json
+import os
 from functools import partial
 from pathlib import Path
 from typing import Any
@@ -133,7 +134,13 @@ def load_board_insertion_rfm_dataset(base_path: str, split: str) -> dict[str, li
     if split not in VALID_SPLITS:
         raise ValueError(f"split must be one of {sorted(VALID_SPLITS)}, got {split!r}")
 
-    base = Path(base_path).expanduser().resolve()
+    expanded_base_path = Path(os.path.expandvars(base_path)).expanduser()
+    if "$" in str(expanded_base_path):
+        raise ValueError(
+            "BOARD_INSERTION_DATASET_PATH is not set. Export it to the directory "
+            "containing success_train, failure_train, success_test, and failure_test."
+        )
+    base = expanded_base_path.resolve()
     success_root = base / f"success_{split}"
     failure_root = base / f"failure_{split}"
     for root in (success_root, failure_root):

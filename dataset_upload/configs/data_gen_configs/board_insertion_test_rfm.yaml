@@ -1,5 +1,5 @@
 dataset:
-  dataset_path: ${oc.env:BOARD_INSERTION_DATASET_PATH}
+  dataset_path: ${BOARD_INSERTION_DATASET_PATH}
   dataset_name: board_insertion_test_rfm
 
 output:
