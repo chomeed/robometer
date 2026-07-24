@@ -18,7 +18,7 @@ export HF_TOKEN="your_huggingface_token"
 Preprocess both datasets into the cache consumed by the training dataloader:
 
 ```bash
-uv run python robometer/data/scripts/preprocess_datasets.py \
+CUDA_VISIBLE_DEVICES=0 uv run python robometer/data/scripts/preprocess_datasets.py \
   --config_path robometer/configs/preprocess_board_insertion.yaml
 ```
 
@@ -38,7 +38,7 @@ chomeed_board_insertion_test_rfm_board_insertion_test_rfm
 ## 2. Run LoRA fine-tuning
 
 ```bash
-uv run python train.py \
+CUDA_VISIBLE_DEVICES=0 uv run python train.py \
   model.base_model_id=Qwen/Qwen3-VL-4B-Instruct \
   model.use_peft=true \
   model.train_progress_head=true \
