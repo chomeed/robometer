@@ -244,6 +244,63 @@ uv run python dataset_upload/generate_hf_dataset.py --config_path=dataset_upload
   --dataset.dataset_path=LIBERO/libero/datasets/libero_90 --dataset.dataset_name=libero_90
 ```
 
+### Board-insertion RFM datasets
+
+The board-insertion loader merges the local LeRobot success and failure splits
+into Robometer/RFM train and test datasets:
+
+| Output | Successful | Failure | Total |
+|---|---:|---:|---:|
+| `board_insertion_train_rfm` | 392 | 42 | 434 |
+| `board_insertion_test_rfm` | 98 | 12 | 110 |
+
+Every trajectory uses the task instruction `insert the board into the slot`,
+the right-wrist camera, and an `(N, 8)` action array. Successful and failed
+episodes receive `quality_label` values of `successful` and `failure`,
+respectively, so Robometer can construct preference pairs without explicit
+`preference_group_id` or `preference_rank` values. The loader proportionally
+interleaves both labels, ensuring capped conversions do not trim all failures.
+
+The loader decodes complete source episodes lazily. The converter then uniformly
+selects at most 64 frames per trajectory and encodes the selected frames at
+10 FPS, as configured in the two YAML files.
+
+Generate the complete datasets from the `reward_modeling/robometer` directory:
+
+```bash
+export BOARD_INSERTION_DATASET_PATH=/path/to/directory/containing/success_train/failure_train
+
+# Train: success_train + failure_train
+uv run python dataset_upload/generate_hf_dataset.py \
+  --config_path=dataset_upload/configs/data_gen_configs/board_insertion_train_rfm.yaml
+
+# Test: success_test + failure_test
+uv run python dataset_upload/generate_hf_dataset.py \
+  --config_path=dataset_upload/configs/data_gen_configs/board_insertion_test_rfm.yaml
+```
+
+The generated datasets are written under:
+
+```text
+robometer_dataset/board_insertion_train_rfm
+robometer_dataset/board_insertion_test_rfm
+```
+
+For a small end-to-end converter check:
+
+```bash
+CUDA_VISIBLE_DEVICES="" uv run python dataset_upload/generate_hf_dataset.py \
+  --config_path=dataset_upload/configs/data_gen_configs/board_insertion_train_rfm.yaml \
+  --output.max_trajectories=10 \
+  --output.num_workers=0
+```
+
+Relevant files:
+
+- `dataset_upload/dataset_loaders/board_insertion_rfm_loader.py`
+- `dataset_upload/configs/data_gen_configs/board_insertion_train_rfm.yaml`
+- `dataset_upload/configs/data_gen_configs/board_insertion_test_rfm.yaml`
+
 See dataset_upload README and dataset_guides for adding datasets.
 
 ---

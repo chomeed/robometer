@@ -1,0 +1,18 @@
+dataset:
+  dataset_path: ${oc.env:BOARD_INSERTION_DATASET_PATH}
+  dataset_name: board_insertion_test_rfm
+
+output:
+  output_dir: ./robometer_dataset
+  max_trajectories: -1
+  max_frames: 64
+  use_video: true
+  fps: 10
+  shortest_edge_size: 240
+  center_crop: false
+  num_workers: 4
+
+hub:
+  push_to_hub: true
+  hub_repo_id: chomeed/board_insertion_test_rfm
+  private: true

@@ -23,7 +23,7 @@ from sentence_transformers import SentenceTransformer
 from transformers import AutoModel, AutoImageProcessor
 from PIL import Image
 
-from datasets import Dataset, DatasetDict, Video, load_dataset
+from datasets import Dataset, DatasetDict, Video, load_dataset, load_from_disk
 from robometer.utils.distributed import rank_0_print
 from robometer.utils.embedding_utils import compute_video_embeddings, compute_text_embeddings
 
@@ -380,7 +380,7 @@ class DatasetPreprocessor:
         source_indices = {}
         partial_success_indices = {}
 
-        frames_dir = os.path.join(cache_dir, "frames")
+        frames_dir = os.path.abspath(os.path.join(cache_dir, "frames"))
         embeddings_dir = os.path.join(cache_dir, self.config.embeddings_cache_dir)
         os.makedirs(frames_dir, exist_ok=True)
         os.makedirs(embeddings_dir, exist_ok=True)
@@ -591,7 +591,7 @@ class DatasetPreprocessor:
         source_indices = {}
         partial_success_indices = {}
 
-        frames_dir = os.path.join(cache_dir, "frames")
+        frames_dir = os.path.abspath(os.path.join(cache_dir, "frames"))
         embeddings_dir = os.path.join(cache_dir, self.config.embeddings_cache_dir)
         os.makedirs(frames_dir, exist_ok=True)
         os.makedirs(embeddings_dir, exist_ok=True)
@@ -883,8 +883,14 @@ class DatasetPreprocessor:
             dataset_name = dataset_path.split("/")[-1]
 
             def patch_path(old_path):
-                root_dir = f"{dataset_root}/{dataset_name}"
-                return f"{root_dir}/{old_path}"  # e.g., "./videos/trajectory_0000.mp4"
+                normalized_path = os.path.normpath(old_path)
+                first_component = normalized_path.split(os.sep, maxsplit=1)[0]
+                if first_component == dataset_name:
+                    # Converter-produced repos preserve the dataset directory
+                    # prefix in each relative video path.
+                    return os.path.join(dataset_root, normalized_path)
+                # Older repos store paths relative to their dataset directory.
+                return os.path.join(dataset_root, dataset_name, normalized_path)
 
             # Load dataset
             dataset = load_dataset(dataset_path, name=subset, split="train")
@@ -897,8 +903,19 @@ class DatasetPreprocessor:
             )
             return dataset
         else:
-            # Load from local disk
-            dataset = load_dataset(dataset_path)
+            # Load a converter-produced Hugging Face dataset from local disk.
+            # Its video paths are relative to the converter output root (the
+            # parent of dataset_path), matching the layout uploaded to the Hub.
+            dataset = load_from_disk(dataset_path)
+            output_root = os.path.dirname(os.path.abspath(dataset_path))
+
+            def patch_local_path(example):
+                frames_path = example["frames"]
+                if not os.path.isabs(frames_path):
+                    frames_path = os.path.join(output_root, frames_path)
+                return {"frames_video": frames_path, "frames_path": frames_path}
+
+            dataset = dataset.map(patch_local_path)
             return dataset
 
     def _show_preprocessed_datasets(self, all_datasets: list[str]):

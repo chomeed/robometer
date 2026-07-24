@@ -48,22 +48,26 @@ except Exception:
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
 
-def push_hf_dataset_and_video_files_to_hub(dataset, hub_repo_id, hub_token, dataset_name, output_dir):
+def push_hf_dataset_and_video_files_to_hub(
+    dataset, hub_repo_id, hub_token, dataset_name, output_dir, private=True
+):
     print(f"Pushing dataset to HuggingFace Hub: {hub_repo_id}")
     dataset.push_to_hub(
         hub_repo_id,
         config_name=dataset_name.lower(),
         token=hub_token,
-        private=False,
+        private=private,
         commit_message=f"Add {dataset_name} dataset for Robometer training",
     )
     print(f"✅ Successfully pushed dataset to: https://huggingface.co/datasets/{hub_repo_id}")
     api = HfApi(token=hub_token)
-    api.upload_large_folder(
-        folder_path=output_dir,
+    dataset_video_dir = os.path.join(output_dir, dataset_name.lower())
+    api.upload_folder(
+        folder_path=dataset_video_dir,
+        path_in_repo=dataset_name.lower(),
         repo_id=hub_repo_id,
         repo_type="dataset",
-        num_workers=min(4, cpu_count()),
+        commit_message=f"Add video files for {dataset_name}",
     )
     print(f"✅ Successfully pushed video files for {dataset_name} to: https://huggingface.co/datasets/{hub_repo_id}")
 
@@ -139,6 +143,7 @@ class HubConfig:
     hub_token: str = field(
         default=None, metadata={"help": "HuggingFace Hub token (or set HF_TOKEN environment variable)"}
     )
+    private: bool = field(default=True, metadata={"help": "Create or keep the Hugging Face dataset private"})
 
 
 @dataclass
@@ -209,6 +214,7 @@ def convert_dataset_to_hf_format(
     push_to_hub: bool = False,
     hub_repo_id: str | None = None,
     hub_token: str | None = None,
+    hub_private: bool = True,
 ) -> Dataset:
     """Convert a list of trajectories to HuggingFace format."""
 
@@ -363,7 +369,7 @@ def convert_dataset_to_hf_format(
                 hub_repo_id,
                 config_name=dataset_name.lower(),  # Use dataset name as config name
                 token=hub_token,
-                private=False,
+                private=hub_private,
                 commit_message=f"Add {dataset_name} dataset for Robometer training",
             )
             print(f"✅ Successfully pushed dataset to: https://huggingface.co/datasets/{hub_repo_id}")
@@ -375,12 +381,15 @@ def convert_dataset_to_hf_format(
 
             api = HfApi(token=hub_token)
 
-            # Upload the entire output directory (which contains all the video files)
-            api.upload_large_folder(
-                folder_path=output_dir,
+            # Upload only this dataset's videos while preserving the prefix used
+            # by the relative paths stored in the Arrow table.
+            dataset_video_dir = os.path.join(output_dir, dataset_name.lower())
+            api.upload_folder(
+                folder_path=dataset_video_dir,
+                path_in_repo=dataset_name.lower(),
                 repo_id=hub_repo_id,
                 repo_type="dataset",
-                # commit_message=f"Add video files for {dataset_name} dataset"
+                commit_message=f"Add video files for {dataset_name}",
             )
             print(f"✅ Successfully pushed video files to: https://huggingface.co/datasets/{hub_repo_id}")
 
@@ -408,13 +417,21 @@ def main(cfg: GenerateConfig):
 
     # Only require HF_USERNAME if pushing to hub
     if cfg.hub.push_to_hub:
-        username = os.getenv("HF_USERNAME")
-        if not username:
-            raise ValueError(
-                "HF_USERNAME is not set. Please export it to push to the Hub, or set hub.push_to_hub=false."
-            )
         if cfg.hub.hub_repo_id:
-            cfg.hub.hub_repo_id = username + "/" + cfg.hub.hub_repo_id
+            repo_id = cfg.hub.hub_repo_id.strip("/")
+            if "/" not in repo_id:
+                username = os.getenv("HF_USERNAME")
+                if not username:
+                    raise ValueError(
+                        "HF_USERNAME is required when hub_repo_id is not namespace-qualified."
+                    )
+                repo_id = f"{username}/{repo_id}"
+            elif repo_id.count("/") != 1:
+                raise ValueError(
+                    f"Invalid hub_repo_id {cfg.hub.hub_repo_id!r}; expected 'repo_name' "
+                    "or 'namespace/repo_name'."
+                )
+            cfg.hub.hub_repo_id = repo_id
 
     # Import the appropriate dataset loader and trajectory creator
     if "libero" in cfg.dataset.dataset_name:
@@ -935,6 +952,15 @@ def main(cfg: GenerateConfig):
             print(f"Dataset saved locally to: {dataset_path_local}")
         print("Dataset conversion complete!")
         return
+    elif cfg.dataset.dataset_name.lower() in {"board_insertion_train_rfm", "board_insertion_test_rfm"}:
+        from dataset_upload.dataset_loaders.board_insertion_rfm_loader import (
+            load_board_insertion_rfm_dataset,
+        )
+
+        split = "train" if "train" in cfg.dataset.dataset_name.lower() else "test"
+        print(f"Loading board-insertion {split} RFM dataset from: {cfg.dataset.dataset_path}")
+        task_data = load_board_insertion_rfm_dataset(cfg.dataset.dataset_path, split=split)
+        trajectories = flatten_task_data(task_data)
     elif "usc_koch_p_ranking" in cfg.dataset.dataset_name.lower():
         from dataset_upload.dataset_loaders.usc_koch_p_ranking_loader import (  # type: ignore
             convert_usc_koch_p_ranking_to_hf,
@@ -1074,6 +1100,7 @@ def main(cfg: GenerateConfig):
         push_to_hub=cfg.hub.push_to_hub,
         hub_repo_id=cfg.hub.hub_repo_id,
         hub_token=cfg.hub.hub_token,
+        hub_private=cfg.hub.private,
     )
 
     print("Dataset conversion complete!")

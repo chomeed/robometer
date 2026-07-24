@@ -1,0 +1,23 @@
+# Preprocess the private board-insertion RFM datasets before LoRA fine-tuning.
+train_datasets:
+  - "chomeed/board_insertion_train_rfm"
+train_subsets:
+  - ["board_insertion_train_rfm"]
+
+eval_datasets:
+  - "chomeed/board_insertion_test_rfm"
+eval_subsets:
+  - ["board_insertion_test_rfm"]
+
+max_frames_for_preprocessing: 64
+video_frame_sampling: "uniform"
+num_proc: 1
+num_threads: 4
+force_reprocess: false
+cache_dir: "./processed_datasets/board_insertion_rfm"
+
+precompute_embeddings: false
+embeddings_cache_dir: "embeddings"
+dinov2_model: "facebook/dinov2-base"
+sentence_model: "sentence-transformers/all-MiniLM-L12-v2"
+embedding_batch_size: 64
