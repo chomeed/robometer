@@ -110,8 +110,7 @@ reward-alignment and policy-ranking evaluation only.
 ## 3. Run full fine-tuning
 
 Full fine-tuning updates the complete Qwen3-VL model instead of training LoRA
-adapters. It requires substantially more GPU memory, so the single-GPU example
-uses batch size 1 and gradient accumulation.
+adapters. This B200 configuration uses the same batch size as LoRA.
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 uv run python train.py \
@@ -122,9 +121,9 @@ CUDA_VISIBLE_DEVICES=0 uv run python train.py \
   training.load_from_checkpoint=robometer/Robometer-4B \
   data.train_datasets=[chomeed_board_insertion_train_rfm_board_insertion_train_rfm] \
   data.eval_datasets=[chomeed_board_insertion_test_rfm_board_insertion_test_rfm] \
-  training.per_device_train_batch_size=1 \
-  training.per_device_eval_batch_size=1 \
-  training.gradient_accumulation_steps=8 \
+  training.per_device_train_batch_size=8 \
+  training.per_device_eval_batch_size=8 \
+  training.gradient_accumulation_steps=1 \
   training.learning_rate=2e-5 \
   training.warmup_ratio=0.1 \
   training.weight_decay=0.01 \
@@ -151,9 +150,9 @@ CUDA_VISIBLE_DEVICES=0 uv run python train.py \
   logging.wandb_project=robometer-board-insertion
 ```
 
-If this command runs out of memory on GPU 0, full fine-tuning requires a
-larger-memory GPU or a multi-GPU FSDP launch. Reducing gradient accumulation
-does not reduce the model, optimizer, or gradient memory footprint.
+This configuration targets a full 180 GB B200. If it runs out of memory,
+reduce the per-device batch size and increase gradient accumulation by the
+same factor to preserve the effective batch size.
 
 ## 4. Memory adjustment
 
