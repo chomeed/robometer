@@ -93,4 +93,7 @@ DS_SHORT_NAME_MAPPING = {
     "abraranwar_usc_koch_rewind_rfm_usc_koch_rewind": "usc_koch_rewind",
     # RoboFAC
     "aliangdw_robofac_rbm_robofac": "robofac",
+    # Board insertion
+    "chomeed_board_insertion_train_rfm_board_insertion_train_rfm": "board_insertion_train",
+    "chomeed_board_insertion_test_rfm_board_insertion_test_rfm": "board_insertion_test",
 }
