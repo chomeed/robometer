@@ -96,13 +96,58 @@ CUDA_VISIBLE_DEVICES=0 uv run python train.py \
   custom_eval.reward_alignment_max_trajectories=10 \
   custom_eval.policy_ranking_max_tasks=1 \
   logging.log_to=[wandb] \
+  logging.wandb_entity=meeroro56 \
   logging.wandb_project=robometer-board-insertion
 ```
 
 The training split supplies gradients. The held-out test split is used for
 reward-alignment and policy-ranking evaluation only.
 
-## 3. Memory adjustment
+## 3. Run full fine-tuning
+
+Full fine-tuning updates the complete Qwen3-VL model instead of training LoRA
+adapters. It requires substantially more GPU memory, so the single-GPU example
+uses batch size 1 and gradient accumulation.
+
+```bash
+CUDA_VISIBLE_DEVICES=0 uv run python train.py \
+  model.base_model_id=Qwen/Qwen3-VL-4B-Instruct \
+  model.use_peft=false \
+  model.train_progress_head=true \
+  model.train_preference_head=true \
+  training.load_from_checkpoint=robometer/Robometer-4B \
+  data.train_datasets=[chomeed_board_insertion_train_rfm_board_insertion_train_rfm] \
+  data.eval_datasets=[chomeed_board_insertion_test_rfm_board_insertion_test_rfm] \
+  training.per_device_train_batch_size=1 \
+  training.per_device_eval_batch_size=1 \
+  training.gradient_accumulation_steps=8 \
+  training.learning_rate=2e-5 \
+  training.warmup_ratio=0.1 \
+  training.weight_decay=0.01 \
+  training.max_steps=1000 \
+  training.output_dir=./logs \
+  training.exp_name=board_insertion_full \
+  training.overwrite_output_dir=true \
+  training.evaluation_strategy=steps \
+  training.do_eval=true \
+  training.run_default_eval=false \
+  training.eval_steps=100 \
+  training.custom_eval_steps=100 \
+  custom_eval.eval_types=[reward_alignment,policy_ranking] \
+  custom_eval.reward_alignment=[chomeed_board_insertion_test_rfm_board_insertion_test_rfm] \
+  custom_eval.policy_ranking=[chomeed_board_insertion_test_rfm_board_insertion_test_rfm] \
+  custom_eval.reward_alignment_max_trajectories=10 \
+  custom_eval.policy_ranking_max_tasks=1 \
+  logging.log_to=[wandb] \
+  logging.wandb_entity=meeroro56 \
+  logging.wandb_project=robometer-board-insertion
+```
+
+If this command runs out of memory on GPU 0, full fine-tuning requires a
+larger-memory GPU or a multi-GPU FSDP launch. Reducing gradient accumulation
+does not reduce the model, optimizer, or gradient memory footprint.
+
+## 4. Memory adjustment
 
 If batch size 8 causes an out-of-memory error, preserve the effective batch
 size by reducing the per-device batch size and increasing gradient
