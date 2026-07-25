@@ -113,7 +113,7 @@ Full fine-tuning updates the complete Qwen3-VL model instead of training LoRA
 adapters. This B200 configuration uses the same batch size as LoRA.
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 uv run python train.py \
+CUDA_VISIBLE_DEVICES=1 uv run python train.py \
   model.base_model_id=Qwen/Qwen3-VL-4B-Instruct \
   model.use_peft=false \
   model.train_progress_head=true \
