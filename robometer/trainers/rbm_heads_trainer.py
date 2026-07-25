@@ -945,6 +945,8 @@ class RBMHeadsTrainer(Trainer):
                 use_frame_steps=self.config.custom_eval.use_frame_steps,
                 train_success_head=self.config.model.train_success_head,
                 last_frame_only=False,
+                max_plots_successful=self.config.custom_eval.reward_alignment_max_plots_successful,
+                max_plots_failure=self.config.custom_eval.reward_alignment_max_plots_failure,
             )
             # log_memory_usage(f"After compute_eval_metrics (reward_alignment)")
 
@@ -963,13 +965,13 @@ class RBMHeadsTrainer(Trainer):
             if video_frames_list and plots:
                 # Log individual images to wandb: first frame + plot side-by-side
                 if self.logger.enabled("wandb"):
-                    # Filter valid pairs and limit to 10
+                    # Filter valid pairs. Plot counts are controlled independently
+                    # for successful and non-successful trajectories by custom_eval.
                     valid_pairs = [
                         (frames, plot)
                         for frames, plot in zip(video_frames_list, plots)
                         if frames is not None and plot is not None
                     ]
-                    valid_pairs = valid_pairs[:10]
 
                     combined_images = []
                     for idx, (frames, plot) in enumerate(valid_pairs):

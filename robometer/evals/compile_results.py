@@ -154,6 +154,8 @@ def run_reward_alignment_eval_per_trajectory(
     use_frame_steps: bool,
     train_success_head: bool,
     last_frame_only: bool = False,
+    max_plots_successful: Optional[int] = 5,
+    max_plots_failure: Optional[int] = 5,
 ) -> Tuple[Dict[str, Any], List, List, List]:
     """Run reward_alignment evaluation analysis and create plots for each trajectory.
 
@@ -178,6 +180,28 @@ def run_reward_alignment_eval_per_trajectory(
     unique_trajectory_ids = set()
 
     metrics = {}
+
+    trajectory_quality = {}
+    for result in results:
+        trajectory_id = result.get("id")
+        if trajectory_id and trajectory_id not in trajectory_quality:
+            trajectory_quality[trajectory_id] = result.get("quality_label")
+
+    successful_plot_ids = sorted(
+        trajectory_id
+        for trajectory_id, quality_label in trajectory_quality.items()
+        if quality_label == "successful"
+    )
+    failure_plot_ids = sorted(
+        trajectory_id
+        for trajectory_id, quality_label in trajectory_quality.items()
+        if quality_label != "successful"
+    )
+    if max_plots_successful is not None:
+        successful_plot_ids = successful_plot_ids[: max(0, max_plots_successful)]
+    if max_plots_failure is not None:
+        failure_plot_ids = failure_plot_ids[: max(0, max_plots_failure)]
+    plot_trajectory_ids = set(successful_plot_ids + failure_plot_ids)
 
     # Collect all success_probs and success_labels for AUPRC computation
     all_success_probs = []
@@ -399,9 +423,11 @@ def run_reward_alignment_eval_per_trajectory(
         traj_success_labels = np.array(traj_success_labels)
         traj_success_probs = np.array(traj_success_probs)
 
-        # Load video frames if video path exists
+        should_plot = trajectory_id in plot_trajectory_ids
+
+        # Only load video frames for trajectories selected for visualization.
         frames = None
-        if video_path:
+        if should_plot and video_path:
             frames = load_frames_from_npz(video_path)
             frames = frames.transpose(0, 3, 1, 2)
 
@@ -412,13 +438,15 @@ def run_reward_alignment_eval_per_trajectory(
                 resized_frames.append(frame_resized.transpose(2, 0, 1))
             frames = np.array(resized_frames)
 
-        video_frames_list.append(frames)
+        if should_plot:
+            video_frames_list.append(frames)
 
         if progress_pred_type == "relative":
             traj_preds = np.cumsum(traj_preds)
             traj_targets = np.cumsum(traj_targets)
 
-        trajectory_progress_data.append(traj_preds.tolist())
+        if should_plot:
+            trajectory_progress_data.append(traj_preds.tolist())
 
         # For trajectories with partial_success, compute absolute delta between final reward and partial_success
         if use_partial_success and partial_success is not None:
@@ -467,8 +495,7 @@ def run_reward_alignment_eval_per_trajectory(
 
         # Create a wandb plot for progress predictions and, if available, success predictions
         # Use the shared helper function from eval_viz_utils
-        # Limit to 10 plots to avoid creating too many
-        if len(plots) < 10:
+        if should_plot:
             has_success_binary = (
                 train_success_head and traj_success is not None and len(traj_success) == len(traj_preds)
             )

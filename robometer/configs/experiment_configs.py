@@ -322,6 +322,14 @@ class CustomEvaluationConfig:
             "help": "Maximum number of trajectories to use for reward alignment evaluation. None = use all trajectories."
         },
     )
+    reward_alignment_max_plots_successful: Optional[int] = field(
+        default=5,
+        metadata={"help": "Maximum successful reward-alignment trajectories to visualize. None = all."},
+    )
+    reward_alignment_max_plots_failure: Optional[int] = field(
+        default=5,
+        metadata={"help": "Maximum non-successful reward-alignment trajectories to visualize. None = all."},
+    )
     use_frame_steps: bool = field(
         default=True,
         metadata={
